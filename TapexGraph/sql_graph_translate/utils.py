@@ -57,9 +57,9 @@ def common_dataset():
     t1 = wtq_ours["train"]["id"]
     t2 = wtq["train"]["id"]
     val_id = custom_set_operation(v1,v2,t1,t2)
-    print(f"val_id : {len(val_id)}")
+    #print(f"val_id : {len(val_id)}")
     val_id = val_id.intersection(set([i["nt"] for i in squall]))
-    print(f"val_id : {len(val_id)}")
+    #print(f"val_id : {len(val_id)}")
     concat_dataset = concatenate_datasets([wtq["train"], wtq["validation"]])
     wtq_validation_indices = [i for i, example in enumerate(concat_dataset) if example['id'] in val_id]
     validation_dataset = concat_dataset.select(wtq_validation_indices)

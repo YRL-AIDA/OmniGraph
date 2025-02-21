@@ -18,7 +18,7 @@ import sqlite3
 
 def execute_example2(example, canon_string=False):
     sql = example['sql2']
-    db_file = f"/home/jovyan/cloud/postgraduate/works/squall/tables/db/{example['tbl']}.db"
+    db_file = f"/media/sunveil/Data/header_detection/poddubnyy/postgraduate/squall/tables/db/{example['tbl']}.db"
     connection = sqlite3.connect(db_file)
     c = connection.cursor()
     c.execute(sql)
@@ -426,8 +426,8 @@ def tsv_unescape_list(x):
     """
     return [tsv_unescape(y) for y in x.split('|')]
 
-tagged_dataset_path = "/home/jovyan/cloud/postgraduate/works/Partial-Exec/data/tables/tagged/"
-database_path = "/home/jovyan/cloud/postgraduate/works/squall/tables/db/"
+tagged_dataset_path = "/media/sunveil/Data/header_detection/poddubnyy/postgraduate/squall/tables/tagged/"
+database_path = "/media/sunveil/Data/header_detection/poddubnyy/postgraduate/squall/tables/db/"
 #corenlp_path = "../data/stanford-corenlp-full-2018-10-05/"
             
 #os.environ['CORENLP_HOME'] = corenlp_path
@@ -436,7 +436,7 @@ target_values_map = {}
 canon_strings_map = {}
 for filename in os.listdir(tagged_dataset_path):
     filename = os.path.join(tagged_dataset_path, filename)
-    print(sys.stderr, 'Reading dataset from', filename)
+    #print(sys.stderr, 'Reading dataset from', filename)
     with open(filename, 'r', 'utf8') as fin:
         header = fin.readline().rstrip('\n').split('\t')
         for line in fin:

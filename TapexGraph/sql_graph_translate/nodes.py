@@ -265,7 +265,7 @@ class Comparison(Node):
             if type(R)==pd.DataFrame and R.columns.shape[0]==1:
       
                 R=R[R.columns[0]]
-                print(f"R_type {type(R)}")
+                #print(f"R_type {type(R)}")
 
             if type(R.tolist()[0]) == str:
                 if R.tolist()[0][-1]==R.tolist()[0][0]=='"':
@@ -277,8 +277,8 @@ class Comparison(Node):
 
         if type(v)==str and c in ["=","!="] and hasattr(R, "dtypes"):
             if type(R) == Series:
-                print(f"v is {v}")
-                print(f"Type R in {type(R)}\nR is\n {R}")
+                #print(f"v is {v}")
+                #print(f"Type R in {type(R)}\nR is\n {R}")
                 v = R.dtypes.type(remove_brackets(v))
                 
 
@@ -770,7 +770,7 @@ def operation_order(nodes):
 
 
 def create_nodes(sql, tbl=None, df=None, mode="wtq",edges=None, condi_expressions=None):
-    print(edges)
+    #print(edges)
     ip = InputProcessor(sql, tbl)
     edges_, condi_expressions_ = create_edges(ip.sql)
     if edges is not None:
@@ -781,12 +781,12 @@ def create_nodes(sql, tbl=None, df=None, mode="wtq",edges=None, condi_expression
         condi_expressions.update(condi_expressions_)
     else:
         condi_expressions = condi_expressions_
-    print("edges,cond")
-    print(edges, condi_expressions)
+    #print("edges,cond")
+    #print(edges, condi_expressions)
     cols = [k.split("|")[-1] for k in list(condi_expressions.keys()) if k.split("|")[0]=="P"]
-    print("cols")
-    print(cols)
-    print('-----------')
+    #print("cols")
+    #print(cols)
+    #print('-----------')
     if df is None:
         df = ip.get_dataframe(cols)
     nodes = {}

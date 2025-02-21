@@ -665,9 +665,9 @@ def modif_expression(expressions, all_keys):
 def parse_query(query):
     sub_query, expressions_global = parsing_subquerys_global(query)
     expressions={}
-    print(sub_query)
+    #print(sub_query)
     for condition, parsing in enumerate(sub_query):
-        print(f'sub-query {parsing} type {type(parsing)}')
+        #print(f'sub-query {parsing} type {type(parsing)}')
         all_keys = [k for k,v in parsing.iter_expressions()]
         for key, expression  in parsing.iter_expressions(): 
             expression = extract(key, expression)

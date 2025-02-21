@@ -83,7 +83,7 @@ def sort_graphe_execute_nodes(edges):
     layer_neighboors = sorted_nodes
     
     while len(layer_neighboors) > 0:
-        print(layer_neighboors)
+        #print(layer_neighboors)
         layer_neighboors = find_layer_neighboors(layer_neighboors,edges)
         sorted_nodes.extend(layer_neighboors)
     return sorted_nodes
