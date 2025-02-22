@@ -9,6 +9,7 @@ from add_utils import translate_query_to_graph_form
 #from datasets.utils.logging import disable_progress_bar
 #disable_progress_bar()
 from concurrent.futures import ProcessPoolExecutor
+from tqdm import tqdm
 # Чтение данных из файло
 with open('tapex_pretrain/train.src', 'r', encoding='utf-8') as src_file:
     questions = src_file.read().splitlines()
@@ -39,20 +40,13 @@ def map_function_for_question_change(example):
     try:
         #print(example['question'])
         processed_question,answer = translate_query_to_graph_form(example['question'],
-                                                                              answer = example['answer'],
-                                                                              Omega_include=omega_include)
-        #i+=1
-        #if i-10000 == 0 :
-        #    with open('log2.txt','a') as logf2:
-         #       j+=i
-          #      logf2.write(str(j)+'\n')
-          #      i = 0
+                                                                  answer = example['answer'],
+                                                                  Omega_include=omega_include)
+
     except Exception as e:
-        with open('log.txt','a') as logf:
-            logf.write(example['question']+'\n')
-            logf.write(str(e))
-            processed_question = "None"
-            answer = "None"
+
+        processed_question = "None"
+        answer = "None"
     finally:
         return {'question': processed_question, 'answer': answer}
 
@@ -62,7 +56,7 @@ def process_dataset_in_parallel(dataset, max_workers=4):
 
         # Применяем функцию обработки к каждому элементу в датасете
 
-        processed_data = list(executor.map(map_function_for_question_change, dataset))
+        processed_data = list(tqdm(executor.map(map_function_for_question_change, dataset)))
 
     
 
@@ -74,7 +68,7 @@ def process_dataset_in_parallel(dataset, max_workers=4):
 
 
 #dataset = dataset.map(map_function_for_question_change)
-processed_dataset = process_dataset_in_parallel(dataset)
+processed_dataset = process_dataset_in_parallel(dataset,max_workers=10)
 print("DATA TRANSFORMED. START SAVING")
 dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data')
 
