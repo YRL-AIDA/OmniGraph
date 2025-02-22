@@ -25,7 +25,7 @@ data = {
 # Создание Dataset
 dataset = Dataset.from_dict(data)
 
-
+print("Загрузил данные")
 # In[10]:
 
 #i = 0
@@ -56,7 +56,7 @@ def process_dataset_in_parallel(dataset, max_workers=4):
 
         # Применяем функцию обработки к каждому элементу в датасете
 
-        processed_data = list(tqdm(executor.map(map_function_for_question_change, dataset)))
+        processed_data = list(executor.map(map_function_for_question_change, dataset))
 
     
 
@@ -68,7 +68,8 @@ def process_dataset_in_parallel(dataset, max_workers=4):
 
 
 #dataset = dataset.map(map_function_for_question_change)
-processed_dataset = process_dataset_in_parallel(dataset,max_workers=10)
+print("Start processing")
+processed_dataset = process_dataset_in_parallel(dataset,max_workers=16)
 print("DATA TRANSFORMED. START SAVING")
 dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data')
 
