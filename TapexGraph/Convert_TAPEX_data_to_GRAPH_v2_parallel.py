@@ -38,18 +38,16 @@ def map_function_for_question_change(example):
             example['answer'] = "None"
     finally:
         return example
-start_chank_id = 8
+start_chank_id = 0
 chank_id = 0
-bach_size = 200000
+bach_size = 100000
 questions_gen = read_questions('tapex_pretrain/train.src')
 answ_gen = read_questions('tapex_pretrain/train.tgt')
 for i in range(start_chank_id):
     list(itertools.islice(questions_gen, bach_size))
     list(itertools.islice(answ_gen, bach_size))
 chank_id = start_chank_id
-bach_size = 100000
-list(itertools.islice(questions_gen, bach_size))
-list(itertools.islice(answ_gen, bach_size))
+
 while True:
     question = list(itertools.islice(questions_gen, bach_size))
     answer = list(itertools.islice(answ_gen, bach_size))
