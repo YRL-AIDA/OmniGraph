@@ -8,7 +8,7 @@ from sql_graph_translate.nodes import create_nodes
 from sql_graph_translate.sql_edges import create_edges
 from sql_graph_translate.metrics import target_values_map, flexible_denotation_accuracy, to_value_list
 from sql_graph_translate.utils import find_first_edges
-from memory_profiler import profile
+#from memory_profiler import profile
 
 def deserializ_tapex_linear_table(linear_table):
     
@@ -32,7 +32,7 @@ def serialize_table_to_tapex_format(df):
     
     return lin_table
     
-@profile
+#@profile
 def translate_query_to_graph_form(query,answer=None,flatten_mode = 'preorder',
                                   Omega_include=["P","C","S","GB","H","OB","A","OP","L"],task='tapex'):
     
@@ -66,7 +66,7 @@ def translate_query_to_graph_form(query,answer=None,flatten_mode = 'preorder',
         return ' NODE '+f' NODE '.join(sort_nodes)+serialize_table_to_tapex_format(df), answer
 
 def escape_special_characters(string):
-    special_symbols = '.^$*+?{}[]\|()'
+    special_symbols = r'.^$*+?{}[]\|()'
     return ''.join([f'\\{w}' if w in special_symbols else w for w in string])
 
 def find_neighboors(node_name, edges):
