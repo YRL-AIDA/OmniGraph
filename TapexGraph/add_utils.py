@@ -7,7 +7,7 @@ from sql_graph_translate.seq_to_graph import parse
 from sql_graph_translate.nodes import create_nodes
 from sql_graph_translate.sql_edges import create_edges
 from sql_graph_translate.metrics import target_values_map, flexible_denotation_accuracy, to_value_list
-from sql_graph_translate.utils import find_first_edges
+from sql_graph_translate.utils import find_first_edges,find_last_edges
 #from memory_profiler import profile
 
 def deserializ_tapex_linear_table(linear_table):
@@ -40,7 +40,7 @@ def translate_query_to_graph_form(query,answer=None,flatten_mode = 'preorder',
     try:
         sql,_ = query.split(pattern)
     except Exception as e:
-        print(e)
+        #print(e)
         return "None", "None"
     sql  = sql.strip()
     df = deserializ_tapex_linear_table(" col : "+query.split(" col : ")[1])
@@ -60,6 +60,11 @@ def translate_query_to_graph_form(query,answer=None,flatten_mode = 'preorder',
     del new_column_names
     df['agg'] = np.zeros(df.shape[0])
     edges, _ = create_edges(sql)
+    if len(find_last_edges(edges)) == 0:
+        #print('Find Cycle graph')
+        return "None", "None"
+
+
     del sql
     if task == 'tapex':
         sort_nodes = sort_graphe_execute_nodes(edges)

@@ -38,9 +38,9 @@ def map_function_for_question_change(example):
             example['answer'] = "None"
     finally:
         return example
-start_chank_id = 0
+start_chank_id = (1500+92)*10+5
 chank_id = 0
-bach_size = 100000
+bach_size = 100
 questions_gen = read_questions('tapex_pretrain/train.src')
 answ_gen = read_questions('tapex_pretrain/train.tgt')
 for i in range(start_chank_id):
@@ -81,4 +81,4 @@ dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_graph_tap
 
 
 
-
+#test = 'select competition where abs ( opponent - competition ) > 1891 col : goal | date | venue | opponent | score | result | competition row 1 : 1 | 12 august 1998 | asim ferhatovic hase stadium, sarajevo | faroe islands | 1–0 | 1–0 | uefa euro 2000 qualifying row 2 : 2 | 14 october 1998 | zalgiris stadium, vilnius | lithuania | 2–2 | 2–4 | uefa euro 2000 qualifying row 3 : 3 | 9 october 1999 | kadriorg stadium, tallinn | estonia | 1–1 | 4–1 | uefa euro 2000 qualifying row 4 : 4 | 9 october 1999 | kadriorg stadium, tallinn | estonia | 2–1 | 4–1 | uefa euro 2000 qualifying row 5 : 5 | 9 october 1999 | kadriorg stadium, tallinn | estonia | 3–1 | 4–1 | uefa euro 2000 qualifying row 6 : 6 | 9 october 1999 | kadriorg stadium, tallinn | estonia | 4–1 | 4–1 | uefa euro 2000 qualifying row 7 : 7 | 2 september 2000 | asim ferhatovic hase stadium, sarajevo | spain | 1-1 | 1–2 | 2002 fifa world cup qualification row 8 : 8 | 15 august 2001 | asim ferhatovic hase stadium, sarajevo | malta | 1–0 | 2–0 | friendly match row 9 : 9 | 15 august 2001 | asim ferhatovic hase stadium, sarajevo | malta | 2–0 | 2–0 | friendly match row 10 : 10 | 7 october 2001 | asim ferhatovic hase stadium, sarajevo | liechtenstein | 2–0 | 5–0 | 2002 fifa world cup qualification row 11 : 11 | 7 october 2001 | asim ferhatovic hase stadium, sarajevo | liechtenstein | 4–0 | 5–0 | 2002 fifa world cup qualification row 12 : 12 | 11 october 2002 | asim ferhatovic hase stadium, sarajevo | germany | 1–0 | 1–1 | friendly match row 13 : 13 | 13 february 2003 | millennium stadium, cardiff | wales | 1–0 | 2–2 | friendly match row 14 : 14 | 2 april 2003 | parken stadium, copenhagen | denmark | 2–0 | 2–0 | uefa euro 2004 qualifying'
