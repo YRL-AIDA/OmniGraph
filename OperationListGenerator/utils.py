@@ -12,6 +12,44 @@ def get_sqlite_data(tbl):
     del df['id']
     return df
 
+def read_questions(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            yield line.strip()
+
+def get_sql_and_table(example):
+    pattern = ' col : '
+    try:
+        sql,table = example.split(pattern)
+    except Exception as e:
+        #print(e)
+        return "None", "None"
+    sql  = sql.strip()
+    df = deserializ_tapex_linear_table(" col : "+table)
+    
+    new_column_names = [f'"{"_".join(head.split(" "))}"' for head in df.columns]
+    #print(new_column_names)
+    for head in sorted(set(df.columns),key=len, reverse=True):
+        sql = sql.replace(head,f'{"_".join(head.split(" "))}')
+    #print(sql)
+    for head in set(df.columns):  
+        #print(escape_special_characters("_".join(head.split(" "))))
+        sql = re.sub(f' {escape_special_characters("_".join(head.split(" ")))} '
+                     ,f" '{'_'.join(head.split(' '))}' ",sql) 
+        #sql = sql.replace(head,f'"{"_".join(head.split(" "))}"') 
+        #print(sql)
+    df.columns = new_column_names
+    del new_column_names
+    df['agg'] = np.zeros(df.shape[0])
+    return sql,df
+
+def covichki(p):
+    return f"'{p}'"
+    
+def join_params(params):
+    #return f"({','.join(params.apply(lambda x:covichki(x) if type(x) == str else str(x)).values)})"
+    return f"({','.join(params.apply(lambda x:str(x)).values)})"
+    
 def get_psql_type(type_):
     if type_ == int:
         return 'INTEGER'
@@ -53,17 +91,7 @@ def get_query_execution_plan(table,sql):
         
         
         cursor.execute(create_table_query)
-
-def get_sqall_execution_plan(squall_example):
-    table = get_sqlite_data(squall_example['tbl'])
-    sql = ' '.join([s[1] for s in squall_example['sql']])
-    answer = get_query_execution_plan(table,sql)
-    return answer[0][0] if answer != None else answer
-        
-        
-    
-        
-    
+            
         # Используем executemany для вставки множества строк
     
         cursor.executemany(insert_data_query, [x.to_list() for _,x in table.iterrows()])  
@@ -81,3 +109,8 @@ def get_sqall_execution_plan(squall_example):
         if connection:
             connection.close()  # Закрытие соединения
         return answer    
+def get_sqall_execution_plan(squall_example):
+    table = get_sqlite_data(squall_example['tbl'])
+    sql = ' '.join([s[1] for s in squall_example['sql']])
+    answer = get_query_execution_plan(table,sql)
+    return answer[0][0] if answer != None else answer
