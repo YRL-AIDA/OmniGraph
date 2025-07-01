@@ -11,7 +11,7 @@ import pandas as pd
 import hashlib
 from tqdm import tqdm
 from add_utils import sort_graphe_execute_nodes, serialize_table_to_tapex_format, to_num_datatime
-from utils import get_wikisql_execution_plan
+from utils import get_wikisql_execution_plan, replace_answer_headers
 from datasets import load_from_disk,Dataset
 
 import multiprocessing as mp
@@ -38,7 +38,9 @@ def process_line(args):
             sql_query = f"{sql_str} {serialize_table_to_tapex_format(table)}"
             table.columns = [*tables_dict[eg['table_id']]['header'],'agg']
             nl_query = f"{eg['question']} {serialize_table_to_tapex_format(table)}"
-            return sql_query, nl_query, str(gold), str(xml_plan), 1
+            col_dict = {head : ["_".join(head.split(" ")), f'col_{i}'] for i,head in enumerate(table.columns)}
+            nl_xml_plan = replace_answer_headers(str(xml_plan), col_dict)
+            return sql_query, nl_query, str(gold), str(xml_plan), nl_xml_plan, 1
         else:
             return None
     except Exception as e:
@@ -69,13 +71,14 @@ def convert_wikisql_to_queryplan_format_multi(querys_t, tables_t, db_file_t, num
                 results = list(tqdm(pool.imap(process_line, args_list), total=len(args_list)))
             for res in results:
                 if res is not None:
-                    sql_question,nl_question, gold, xml_plan, cnt = res
+                    sql_question,nl_question, gold, xml_plan, nl_xml_plan, cnt = res
                     sql_queries.append(sql_question)
                     nl_queries.append(nl_question)
                     answers.append(gold)
                     xml_plans.append(xml_plan)
+                    nl_xml_plans.append(nl_xml_plan)
                     ppp += cnt
-    return sql_queries, nl_queries, answers, xml_plans, ppp
+    return sql_queries, nl_queries, answers, xml_plans, nl_xml_plan, ppp
 
 test = convert_wikisql_to_queryplan_format_multi([out],[out],[out],num_workers=30)
 dataset = Dataset.from_dict({
