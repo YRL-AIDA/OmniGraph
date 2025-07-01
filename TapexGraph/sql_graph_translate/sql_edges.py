@@ -20,15 +20,17 @@ def find_matching_strings(name, keys_to_check, string_list, condition):
 
 
 
-def find_specific_key(expressions_keys,ls_, name):
+def find_specific_key(expressions_keys,ls_, name,single_return = False):
     name2 = "|".join(name.split('|')[:-2])
     if name2 in ['L|limit|0',"A|selectabs|0","H|having|0","OP|select|0","A|orderdistinct|0"]:
+        print(f'{name2} loss')
         return None
     
     
     dict_keys = ["|".join(i.split('|')[:-2]) for i in expressions_keys]
+    
     condi = name.split('|')[-2]
-    keys_to_check = checks[name2]
+    keys_to_check = checks.get(name2,[])
 
     if name2=="C|where|1":
         if "S|whereand1|0" in dict_keys and "S|whereand2|0" in dict_keys and "S|whereaggor*|0" not in dict_keys and "C|where|3" not in dict_keys:
@@ -71,13 +73,16 @@ def find_specific_key(expressions_keys,ls_, name):
     if name2 == "P|order|0" and "OB|order|0" in dict_keys and "OB|order|1" in dict_keys:
         out = find_matching_strings(name, ["OB|order|0","OB|order|1"], ls_, condi)
         return out
-
+    
     for key in keys_to_check:
         if key in dict_keys:
             end = find_matching_string(key, ls_, condi)
             return [(name, end)]
-                            
-                            
+        else:
+            if len(dict_keys) == 1 and single_return:
+                return [(name, None)]
+
+    return None
 
 
 def return_connected(expressions_global):
@@ -132,6 +137,25 @@ def connect_elements(expressions, expressions_global):
     
     return edges
 
+def simple_connect_elements(expressions, expressions_global):
+    edges = []
+    ls_ = list(expressions.keys())
+    for nexp, (k,v) in enumerate(expressions.items()):
+
+        edge = find_specific_key(expressions,ls_, k,single_return=True)
+        
+        if edge is not None:
+            edges.extend(edge)
+            
+    if nexp>=1:
+        last_edges = find_last_edges(edges)
+        for e in last_edges:
+            new_element = connect_global(e, expressions_global)
+            for e in new_element:
+                if e not in edges:
+                    edges.extend([e])
+    
+    return edges
 
 def labeled_edges(edges):
     labels = [f"N{i}" for i in range(1, 39)] # 39 max number of nodes in a sql query. 
@@ -153,7 +177,7 @@ def labeled_edges(edges):
             node_labels[target] = f"{label}|{target}"
             node_counter += 1
 
-        labeled_edges.append((node_labels[source], node_labels[target]))
+        labeled_edges.append((node_labels[source], node_labels[target] if target != None else target))
     return labeled_edges
 
 
@@ -161,5 +185,12 @@ def create_edges(query):
     condi_expressions, expressions_global = parse_query(query)
     edges = connect_elements(condi_expressions, expressions_global)
     condi_expressions.update(expressions_global)
+    edges = labeled_edges(edges)
+    return edges, condi_expressions
+    
+def simple_create_edges(query):
+    condi_expressions, expressions_global = parse_query(query)
+    edges = simple_connect_elements(condi_expressions, expressions_global)
+    
     edges = labeled_edges(edges)
     return edges, condi_expressions
