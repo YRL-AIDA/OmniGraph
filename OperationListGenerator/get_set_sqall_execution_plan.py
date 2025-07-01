@@ -13,7 +13,7 @@ from add_utils import deserializ_tapex_linear_table,escape_special_characters
 from utils import get_sqlite_data,get_sqall_execution_plan
 
 
-def parse_xml(element, indent=0,odjekts_description = [],parent = None,num_plans=0):
+def parse_xml(element, indent=0,odjekts_description = [],parent = None,node_name = None,width = 0,depth = 0):
     
     ignore_names = {'Startup-Cost',
                     'Total-Cost',
@@ -37,9 +37,11 @@ def parse_xml(element, indent=0,odjekts_description = [],parent = None,num_plans
     tag = re.sub(pattern,'',element.tag)
     
     if tag not in ['Plan','Plans']:
-    
+        
         if tag not in ignore_names:
+            #print(f'Node {node_name}')
             #print(f"{space}Тег: <{tag}>")
+            #print(f"{space}Parent: {parent}")
             # Отображаем атрибуты элемента, если они есть
         
             #if element.attrib:
@@ -52,26 +54,55 @@ def parse_xml(element, indent=0,odjekts_description = [],parent = None,num_plans
         
             #if element.text and element.text.strip():# and (tag=='Node-Type' or tag=='Parent-Relationship' or tag=='Relation-Name'):
         
-              #  print(f"{space}  Текст: {element.text.strip()}")
+             #   print(f"{space}  Текст: {element.text.strip()}")
         
-            
-            odjekts_description.append({'teg':str(tag),
-                                    'attr':[*element.attrib] if element.attrib else [],
-                                    'parent_teg': parent,
-                                    'text': element.text.strip() if element.text and element.text.strip() else ''
-                                   })
+            if tag == 'Node-Type':
+                node_name = element.text.strip()+f'_{width}_{depth}'
+                odjekts_description.append({'teg':str(tag),
+                                            'node_name': node_name,
+                                        'attr':[*element.attrib] if element.attrib else [],
+                                        'parent_teg': parent,
+                                        'text': node_name
+                                       })
+                
+                return {'node_name': node_name}
+            else:
+                odjekts_description.append({'teg':str(tag),
+                                            'node_name': node_name,
+                                        'attr':[*element.attrib] if element.attrib else [],
+                                        'parent_teg': parent,
+                                        'text': element.text.strip() if element.text and element.text.strip() else ''
+                                       })
+            #odjekts_description.append({'teg':str(tag),
+                #                            'node_name': element.text.strip() if element.text and element.text.strip() else ''
+                  #                      'attr':[*element.attrib] if element.attrib else [],
+                   #                     'parent_teg': parent,
+                    #                    'text': element.text.strip() if element.text and element.text.strip() else ''
+                     #                  })
         # Рекурсивно проходим по всем дочерним элементам
             
-            for child in element:
-        
-                parse_xml(child, indent + 4,odjekts_description,tag)
+                for child in element:
+            
+                    parse_xml(child, indent + 4,odjekts_description,tag,node_name,width,depth)
+                return {'somesing_else': ""}
     else:
+        if tag == 'Plans':
+            
+            
+            width = 1
+            node_name=None
+            for child in element:
+                
+                parse_xml(child, indent + 4,odjekts_description,parent,node_name,width,depth+1)
+                width+=1
+            return {'somesing_else': ""}
         if tag == 'Plan':
-            parent = parent + f'_Plan_{num_plans}' 
-            num_plans += 1
-        for child in element:
-            parse_xml(child, indent + 4,odjekts_description,parent,num_plans)
-
+            for child in element:
+                type_name = parse_xml(child, indent + 4,odjekts_description,parent,node_name,width,depth)
+                if type_name != None and 'node_name' in type_name.keys():
+                    node_name = type_name['node_name']
+                    indent+=2
+            return {'somesing_else': ""}
 
 
 

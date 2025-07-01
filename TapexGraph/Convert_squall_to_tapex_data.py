@@ -1,26 +1,26 @@
-#!/usr/bin/env python
-# coding: utf-8
+import psycopg2
+import sys
+import re
+import numpy as np
+import pandas as pd
+import sqlite3
+import xml.etree.ElementTree as ET
+from datasets import concatenate_datasets,load_from_disk,Dataset
+from tqdm import tqdm
+import json
+import hashlib
+import shutil
 
-# In[9]:
-
-
+sys.path.append('../TapexGraph')
+from add_utils import deserializ_tapex_linear_table,escape_special_characters,fix_sql_in_tapex_query
+from utils import get_sqlite_data,get_tapex_execution_plan
 from datasets import concatenate_datasets,load_from_disk,Dataset
 
-from add_utils import translate_query_to_graph_form_new
 #from datasets.utils.logging import disable_progress_bar
 #disable_progress_bar()
 from concurrent.futures import ProcessPoolExecutor
 import itertools
 from tqdm import tqdm
-import warnings
-
-warnings.filterwarnings(
-
-    "ignore",
-
-    message="Could not infer format, so each element will be parsed individually, falling back to `dateutil`."
-
-)
 # Чтение данных из файло
 def read_questions(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -33,29 +33,26 @@ def read_questions(file_path):
 # Создание словаря для Dataset
 
 # Создание Dataset
-omega_include = ["P","C","S","GB","H","OB","A","OP","L"]#
 
 
 def map_function_for_question_change(example):
+
+    #print(example['question'])
     try:
-        #print(example['question'])
-        query, answer = translate_query_to_graph_form_new(example['question'], answer = example['answer'],
-                                                                              Omega_include=omega_include)
-        if answer != None and query != None:
-            example['question'] = query
-            example['answer'] = answer
-        else:
-            example['answer']= "None"
+        tab_name='f'+hashlib.md5(example['question'].encode('utf-8')).hexdigest()
+        plan = get_tapex_execution_plan(fix_sql_in_tapex_query(example['question'],tab_name=tab_name)
+                                        , tab_name=tab_name)
+        example['xml_plan'] = plan if plan != None else "None"
     except Exception as e:
-        print(e,example)
-        example['answer'] = "None"
-    finally:
-        return example
+        return 
+        #   print(e)
+      #  print(example['query'])
+    
 start_chank_id = 0
 chank_id = 0
 bach_size = 100000
-questions_gen = read_questions('tapex_pretrain/train.src')
-answ_gen = read_questions('tapex_pretrain/train.tgt')
+questions_gen = read_questions('../TapexGraph/tapex_pretrain/train.src')
+answ_gen = read_questions('../TapexGraph/tapex_pretrain/train.tgt')
 for i in range(start_chank_id):
     list(itertools.islice(questions_gen, bach_size))
     list(itertools.islice(answ_gen, bach_size))
@@ -73,25 +70,23 @@ while True:
     })
     print("Загрузил данные")
     print("Start processing")
-    dataset = dataset.map(map_function_for_question_change,num_proc=10)
+    dataset = dataset.map(map_function_for_question_change,num_proc=17)
     print(dataset[0])
 
     print("DATA TRANSFORMED. START SAVING")
-    dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data_{chank_id}')
+    dataset.save_to_disk(f'./converved_to_plan_tapex_data_{chank_id}')
     chank_id+=1
 # In[10]:
 dataset = Dataset.from_dict({
         'question': [],
-        'answer': []
+        'answer': [],
+        'xml_plan': []
     })
 for chank in range(chank_id):
-    dataset_path = f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data_{chank}'
+    dataset_path = f'./converved_to_plan_tapex_data_{chank}'
     data = load_from_disk(dataset_path)
     dataset = concatenate_datasets([dataset,data])
     del data
+    shutil.rmtree(f'./converved_to_plan_tapex_data_{chank}')
 print("DATA TRANSFORMED. START SAVING")
-dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data_full')
-dataset = dataset.filter(lambda x : True if x['answer'] != 'None' else False)
-print("DATA Cleared. START SAVING")
-dataset.save_to_disk(f'./noneCleared_converved_to_{"".join(omega_include).lower()}_graph_tapex_data_full')
-
+dataset.save_to_disk(f'./converved_to_plan_tapex_data_full')

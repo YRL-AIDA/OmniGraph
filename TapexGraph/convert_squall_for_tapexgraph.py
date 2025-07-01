@@ -1,31 +1,17 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[9]:
-
-
 from datasets import concatenate_datasets,load_from_disk,Dataset
 
-from add_utils import translate_query_to_graph_form_new
+from add_utils import translate_query_to_graph_form,serialize_table_to_tapex_format
 #from datasets.utils.logging import disable_progress_bar
 #disable_progress_bar()
 from concurrent.futures import ProcessPoolExecutor
 import itertools
 from tqdm import tqdm
-import warnings
-
-warnings.filterwarnings(
-
-    "ignore",
-
-    message="Could not infer format, so each element will be parsed individually, falling back to `dateutil`."
-
-)
 # Чтение данных из файло
-def read_questions(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        for line in file:
-            yield line.strip()
+import sys
+import json
+sys.path.insert(0,'../OperationListGenerator')
+from utils import get_sqlite_data
+
 #questions = list(read_questions('tapex_pretrain/train.src'))
 #answers = list(read_questions('tapex_pretrain/train.tgt'))
 # Проверка, что количество вопросов и ответов совпадает
@@ -39,23 +25,28 @@ omega_include = ["P","C","S","GB","H","OB","A","OP","L"]#
 def map_function_for_question_change(example):
     try:
         #print(example['question'])
-        query, answer = translate_query_to_graph_form_new(example['question'], answer = example['answer'],
+        example['question'],example['answer'] = translate_query_to_graph_form(example['question'],
+                                                                              answer = example['answer'],
                                                                               Omega_include=omega_include)
-        if answer != None and query != None:
-            example['question'] = query
-            example['answer'] = answer
-        else:
-            example['answer']= "None"
     except Exception as e:
-        print(e,example)
-        example['answer'] = "None"
+            example['question'] = "None"
+            example['answer'] = "None"
     finally:
         return example
 start_chank_id = 0
 chank_id = 0
-bach_size = 100000
-questions_gen = read_questions('tapex_pretrain/train.src')
-answ_gen = read_questions('tapex_pretrain/train.tgt')
+bach_size = 100
+with open('/media/sunveil/Data/header_detection/poddubnyy/postgraduate/squall/data/squall.json','r') as inf:
+    squall = json.load(inf)
+
+def get_tapex_question_gen(squall):
+    for exmpl in squall:
+        serelize_table = serialize_table_to_tapex_format(get_sqlite_data(exmpl['tbl']))
+        sql = ' '.join([s[1] for s in exmpl['sql']])
+        yield f'{sql} {serelize_table}'
+
+questions_gen = get_tapex_question_gen(squall)
+answ_gen = (exmpl['tgt'] for exmpl in squall)
 for i in range(start_chank_id):
     list(itertools.islice(questions_gen, bach_size))
     list(itertools.islice(answ_gen, bach_size))
@@ -73,11 +64,11 @@ while True:
     })
     print("Загрузил данные")
     print("Start processing")
-    dataset = dataset.map(map_function_for_question_change,num_proc=10)
+    dataset = dataset.map(map_function_for_question_change,num_proc=17)
     print(dataset[0])
 
     print("DATA TRANSFORMED. START SAVING")
-    dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data_{chank_id}')
+    dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_squall_graph_tapex_data_{chank_id}')
     chank_id+=1
 # In[10]:
 dataset = Dataset.from_dict({
@@ -85,13 +76,9 @@ dataset = Dataset.from_dict({
         'answer': []
     })
 for chank in range(chank_id):
-    dataset_path = f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data_{chank}'
+    dataset_path = f'./converved_to_{"".join(omega_include).lower()}_squall_graph_tapex_data_{chank}'
     data = load_from_disk(dataset_path)
     dataset = concatenate_datasets([dataset,data])
     del data
 print("DATA TRANSFORMED. START SAVING")
-dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_graph_tapex_data_full')
-dataset = dataset.filter(lambda x : True if x['answer'] != 'None' else False)
-print("DATA Cleared. START SAVING")
-dataset.save_to_disk(f'./noneCleared_converved_to_{"".join(omega_include).lower()}_graph_tapex_data_full')
-
+dataset.save_to_disk(f'./converved_to_{"".join(omega_include).lower()}_squall_graph_tapex_data_full')

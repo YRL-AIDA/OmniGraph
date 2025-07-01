@@ -16,7 +16,7 @@ from transformers import (
     set_seed,
 )
 from typing import List, Optional
-from datasets import load_from_disk,load_dataset,DatasetDict
+from datasets import load_from_disk,load_dataset
 from collections import defaultdict
 from functools import partial
 from dataclasses import dataclass, field
@@ -25,7 +25,7 @@ from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 from transformers.utils import check_min_version
 logger = logging.getLogger(__name__)
-import torch.nn as nn
+
 def check_splits(ds):
 
     """
@@ -47,7 +47,7 @@ def data_processin(example,is_training=False,tokenizer = None,padding = False,ig
         return example
     
     if is_training:
-        model_input = tokenizer(example['question'],truncation=False)
+        model_input = tokenizer(example['sql_question'],truncation=False)
         if len(model_input['input_ids']) <= tokenizer.model_max_length:
             if padding == "max_length" and ignore_pad_token_for_loss:
                 model_input['labels'] = [(l if l != tokenizer.pad_token_id else -100) 
@@ -61,7 +61,7 @@ def data_processin(example,is_training=False,tokenizer = None,padding = False,ig
             return model_input 
             #print('Перебор')
     else:
-        model_input = tokenizer(example['question'],padding=padding, truncation=False)
+        model_input = tokenizer(example['sql_question'],padding=padding, truncation=False)
         if len(model_input['input_ids']) <= tokenizer.model_max_length:
             model_input['labels'] = [(l if l != tokenizer.pad_token_id else -100) 
                      for l in tokenizer(example['answer'],
@@ -248,6 +248,12 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    eval_results = {}
+    pred_results = {}
+
+    check_dir = model_args.model_name_or_path
+    checkpoint_num = 1
     last_checkpoint = None
     logging.info('overwrite_output_dir set to False to avoid losing previous fine-tuning')
     overwrite_output_dir = False
@@ -292,11 +298,11 @@ def main():
             logger.info(f"Load dataset From Disk PATH = {data_args.dataset_name}")
     elif data_args.castom_data_local_dir is not None:
         datasets = load_from_disk(data_args.castom_data_local_dir)
-        if not any(check_splits(datasets)):
-            print("FAIL")
-            datasets = DatasetDict({'train':datasets})
-            print(datasets)
-
+        if not all(check_splits(datasets)):
+            datasets = datasets.train_test_split(test_size=0.2, shuffle=True,seed=training_args.seed)
+            datasets['train'],datasets['validation'] = datasets['train'].train_test_split(test_size=0.25, 
+                                                                                       shuffle=True,
+                                                                                   seed=training_args.seed).values()
     else:
         data_files = {}
         if data_args.train_file is not None:
@@ -313,7 +319,7 @@ def main():
     logger.info("datasets",datasets)
     logger.info("Load conf")
     config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+        model_args.config_name if model_args.config_name else check_dir,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=model_args.auth_token if model_args.use_auth_token else None,
@@ -324,7 +330,7 @@ def main():
     logger.info("Load tokenizer")
 
     tokenizer = BartTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+        model_args.tokenizer_name if model_args.tokenizer_name else check_dir,
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
@@ -335,15 +341,13 @@ def main():
     logger.info("Load model")
 
     model = BartForConditionalGeneration.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        check_dir,
+        from_tf=bool(".ckpt" in check_dir),
         config=config,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=model_args.auth_token if model_args.use_auth_token else None,
     )
-    if training_args.resume_from_checkpoint is not None:
-        model = nn.DataParallel(model)
     padding = "max_length" if data_args.pad_to_max_length else False
     if model.config.decoder_start_token_id is None:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
@@ -355,24 +359,6 @@ def main():
                                       is_training = False,
                                       tokenizer = tokenizer)
 
-
-    
-    if training_args.do_train:
-        if "train" not in datasets:
-            raise ValueError("--do_train requires a train dataset")
-        train_dataset = datasets["train"]
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
-        train_dataset = train_dataset.map(
-            data_processin_training,
-            #batched=True,
-            num_proc=data_args.preprocessing_num_workers,
-            load_from_cache_file=not data_args.overwrite_cache,
-        )
-        train_dataset = train_dataset.filter(lambda x: True if len(x['input_ids']) > 0 else False,
-                                             num_proc=data_args.preprocessing_num_workers)
-        logger.info(f"Actual train size {len(train_dataset)}")
-        #print("answers decode : ",tokenizer.decode(train_dataset["labels"][rnd]))
 
     if training_args.do_eval:
         max_target_length = data_args.val_max_target_length
@@ -489,25 +475,7 @@ def main():
         data_collator=data_collator,
         compute_metrics=compute_metrics if training_args.predict_with_generate else None,
     )
-    if training_args.do_train:
-        checkpoint = None
-        if training_args.resume_from_checkpoint is not None:
-            checkpoint = training_args.resume_from_checkpoint
-        elif last_checkpoint is not None:
-            checkpoint = last_checkpoint
-        train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        trainer.save_model()  # Saves the tokenizer too for easy upload
-
-        metrics = train_result.metrics
-        max_train_samples = (
-            data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
-
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
-        trainer.save_state()
-
+    
     # Evaluation
     results = {}
     if training_args.do_eval:
@@ -521,7 +489,7 @@ def main():
 
         trainer.log_metrics("last_eval", metrics)
         trainer.save_metrics("last_eval", metrics)
-
+        eval_results[checkpoint_num] = metrics
     if training_args.do_predict:
         trainer = Seq2SeqTrainer(
             model=model,
@@ -548,7 +516,7 @@ def main():
 
         trainer.log_metrics("predict", metrics)
         trainer.save_metrics("predict", metrics)
-
+        pred_results[checkpoint_num] = metrics
         if trainer.is_world_process_zero():
             if training_args.predict_with_generate:
                 predictions = tokenizer.batch_decode(
@@ -558,7 +526,10 @@ def main():
                 output_prediction_file = os.path.join(training_args.output_dir, "tapex_predictions.txt")
                 with open(output_prediction_file, "w") as writer:
                     writer.write("\n".join(predictions))
-
+    with open(os.path.join(training_args.output_dir, "eval_test.txt"),'w') as outf:
+        json.dump(eval_results,outf)
+    with open(os.path.join(training_args.output_dir, "pred_test.txt"),'w') as outf:
+        json.dump(pred_results,outf)
     return results
 
 if __name__ == "__main__":

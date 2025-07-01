@@ -16,7 +16,7 @@ from transformers import (
     set_seed,
 )
 from typing import List, Optional
-from datasets import load_from_disk,load_dataset,DatasetDict
+from datasets import load_from_disk,load_dataset, DatasetDict
 from collections import defaultdict
 from functools import partial
 from dataclasses import dataclass, field
@@ -25,7 +25,8 @@ from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 from transformers.utils import check_min_version
 logger = logging.getLogger(__name__)
-import torch.nn as nn
+
+
 def check_splits(ds):
 
     """
@@ -51,7 +52,7 @@ def data_processin(example,is_training=False,tokenizer = None,padding = False,ig
         if len(model_input['input_ids']) <= tokenizer.model_max_length:
             if padding == "max_length" and ignore_pad_token_for_loss:
                 model_input['labels'] = [(l if l != tokenizer.pad_token_id else -100) 
-                     for l in tokenizer(example['answer'],
+                     for l in tokenizer(example['graph_answer'],
                         padding=padding, truncation=False)['input_ids']
                     ]
                 return model_input
@@ -64,7 +65,7 @@ def data_processin(example,is_training=False,tokenizer = None,padding = False,ig
         model_input = tokenizer(example['question'],padding=padding, truncation=False)
         if len(model_input['input_ids']) <= tokenizer.model_max_length:
             model_input['labels'] = [(l if l != tokenizer.pad_token_id else -100) 
-                     for l in tokenizer(example['answer'],
+                     for l in tokenizer(example['graph_answer'],
                         padding=padding, truncation=False)['input_ids']
                     ]
             return model_input
@@ -296,7 +297,11 @@ def main():
             print("FAIL")
             datasets = DatasetDict({'train':datasets})
             print(datasets)
-
+            #datasets = datasets.train_test_split(test_size=0.2, shuffle=True,seed=training_args.seed)
+            #datasets['train'],datasets['validation'] = datasets['train'].train_test_split(test_size=0.25, 
+            #                                                                           shuffle=True,
+            #                                                                       seed=training_args.seed).values()
+        
     else:
         data_files = {}
         if data_args.train_file is not None:
@@ -342,8 +347,6 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=model_args.auth_token if model_args.use_auth_token else None,
     )
-    if training_args.resume_from_checkpoint is not None:
-        model = nn.DataParallel(model)
     padding = "max_length" if data_args.pad_to_max_length else False
     if model.config.decoder_start_token_id is None:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
@@ -509,19 +512,19 @@ def main():
         trainer.save_state()
 
     # Evaluation
-    results = {}
-    if training_args.do_eval:
-        logger.info("*** Last Evaluate ***")
+    #results = {}
+    #if training_args.do_eval:
+    #    logger.info("*** Last Evaluate ***")
 
-        metrics = trainer.evaluate(
-            max_length=data_args.val_max_target_length, num_beams=data_args.num_beams, metric_key_prefix="last_eval"
-        )
-        max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
-        metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
-        trainer.log_metrics("last_eval", metrics)
-        trainer.save_metrics("last_eval", metrics)
-
+#        metrics = trainer.evaluate(
+ #           max_length=data_args.val_max_target_length, num_beams=data_args.num_beams, metric_key_prefix="last_eval"
+  #      )
+   #     max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
+    #    metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
+#
+ #       trainer.log_metrics("last_eval", metrics)
+  #      trainer.save_metrics("last_eval", metrics)
+#
     if training_args.do_predict:
         trainer = Seq2SeqTrainer(
             model=model,

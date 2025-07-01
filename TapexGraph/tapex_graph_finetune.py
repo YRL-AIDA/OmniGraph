@@ -20,12 +20,14 @@ from datasets import load_from_disk,load_dataset,DatasetDict
 from collections import defaultdict
 from functools import partial
 from dataclasses import dataclass, field
+from safetensors.torch import load_file,save_file
 import transformers
 from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 from transformers.utils import check_min_version
 logger = logging.getLogger(__name__)
 import torch.nn as nn
+import torch
 def check_splits(ds):
 
     """
@@ -81,6 +83,10 @@ class ModelArguments:
     """
 
     model_name_or_path: str = field(
+        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"},
+    )
+    noize_share_add: bool = field(
+        default=False,
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"},
     )
     config_name: Optional[str] = field(
@@ -333,7 +339,10 @@ def main():
     )
     
     logger.info("Load model")
-
+    if model_args.noize_share_add:
+        state_dict = load_file(f"{model_args.model_name_or_path}/model.safetensors")
+        state_dict["model.shared.weight"][0] = state_dict["model.shared.weight"][0] + torch.randn(1024)
+        save_file(state_dict, f"{model_args.model_name_or_path}/model.safetensors")
     model = BartForConditionalGeneration.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -341,9 +350,9 @@ def main():
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=model_args.auth_token if model_args.use_auth_token else None,
+        
     )
-    if training_args.resume_from_checkpoint is not None:
-        model = nn.DataParallel(model)
+    
     padding = "max_length" if data_args.pad_to_max_length else False
     if model.config.decoder_start_token_id is None:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
